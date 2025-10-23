@@ -1,5 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
 export async function generateAIResponse(
   systemPrompt: string,
   userInput: string
@@ -10,15 +8,39 @@ export async function generateAIResponse(
     throw new Error('GEMINI_API_KEY is not configured');
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
-  // Combine system prompt with user input
+  // Use v1beta API with gemini-2.0-flash (confirmed available in your model list)
   const fullPrompt = `${systemPrompt}\n\nUser Input:\n${userInput}`;
 
-  const result = await model.generateContent(fullPrompt);
-  const response = await result.response;
-  const text = response.text();
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: fullPrompt,
+              },
+            ],
+          },
+        ],
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`API request failed: ${error}`);
+  }
+
+  const data = await response.json();
+  
+  // Extract the text from the response
+  const text = data.candidates[0].content.parts[0].text;
   
   return text;
 }

@@ -1,3 +1,5 @@
+// app/lib/ai.ts
+
 export async function generateAIResponse(
   systemPrompt: string,
   userInput: string

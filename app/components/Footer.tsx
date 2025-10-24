@@ -1,3 +1,4 @@
+// app/components/Footer.tsx
 export function Footer() {
   return (
     <footer className="border-t mt-12">

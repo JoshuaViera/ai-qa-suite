@@ -1,3 +1,4 @@
+// app/api/generate/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { generateAIResponse } from '@/app/lib/ai';
 

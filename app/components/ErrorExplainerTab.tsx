@@ -1,10 +1,13 @@
 'use client';
-
+import { LoadingSkeleton } from './LoadingSkeleton';
+import { CodeBlock } from './CodeBlock';
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import { ERROR_EXPLAINER_PROMPT } from '@/app/lib/prompts';
 import { ERROR_EXPLAINER_EXAMPLE } from '@/app/lib/examples';
 
@@ -15,6 +18,8 @@ export function ErrorExplainerTab() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(false);
+  const [showExamples, setShowExamples] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const handleGenerate = async () => {
     if (!brokenCode.trim() || !errorMessage.trim()) {
@@ -30,10 +35,8 @@ export function ErrorExplainerTab() {
       setCooldown(true);
       setExplanation('');
 
-      // Combine code and error for the AI
       const combinedInput = `CODE:\n${brokenCode}\n\nERROR:\n${errorMessage}`;
 
-      // Call the API route
       const apiResponse = await fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -52,8 +55,10 @@ export function ErrorExplainerTab() {
 
       const data = await apiResponse.json();
       setExplanation(data.response);
+      toast.success('Error explained successfully!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
+      toast.error('Failed to explain error');
     } finally {
       setIsLoading(false);
       setTimeout(() => setCooldown(false), 3000);
@@ -63,13 +68,19 @@ export function ErrorExplainerTab() {
   const handleTryExample = () => {
     setBrokenCode(ERROR_EXPLAINER_EXAMPLE.code);
     setErrorMessage(ERROR_EXPLAINER_EXAMPLE.error);
+    setShowExamples(false);
+    toast.info('Example loaded');
   };
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(explanation);
+      setCopied(true);
+      toast.success('Copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+      toast.error('Failed to copy');
     }
   };
 
@@ -84,16 +95,41 @@ export function ErrorExplainerTab() {
           </p>
         </div>
 
-        {/* Try Example Button */}
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleTryExample}
+        {/* Collapsible Examples Section */}
+        <div className="border rounded-lg">
+          <button
+            onClick={() => setShowExamples(!showExamples)}
+            className="w-full flex items-center justify-between p-4 hover:bg-accent/50 transition-colors rounded-lg"
             type="button"
           >
-            Try Example
-          </Button>
+            <span className="text-sm font-medium">
+              {showExamples ? 'Hide' : 'Show'} Example Error
+            </span>
+            {showExamples ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+
+          {showExamples && (
+            <div className="p-4 border-t bg-muted/30">
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Click to load a sample error scenario:
+                </p>
+                <Button
+                  onClick={handleTryExample}
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  type="button"
+                >
+                  Load Example Error
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Code Input */}
@@ -133,9 +169,18 @@ export function ErrorExplainerTab() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+        {/* Loading State */}
+        {isLoading && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Analyzing Error...</label>
+            <div className="bg-muted p-4 rounded-lg">
+              <LoadingSkeleton />
+            </div>
+          </div>
+        )}
 
         {/* Output Section */}
-        {explanation && (
+        {!isLoading && explanation && (
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label className="text-sm font-medium">Explanation & Fix</label>
@@ -145,12 +190,23 @@ export function ErrorExplainerTab() {
                 onClick={handleCopy}
                 type="button"
               >
-                Copy
+                {copied ? (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy
+                  </>
+                )}
               </Button>
             </div>
-            <div className="prose prose-sm max-w-none bg-muted p-4 rounded-lg overflow-x-auto">
-              <pre className="whitespace-pre-wrap">{explanation}</pre>
-            </div>
+            <CodeBlock
+              code={explanation}
+              language="typescript"
+            />
           </div>
         )}
       </div>

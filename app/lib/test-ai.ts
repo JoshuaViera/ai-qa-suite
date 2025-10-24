@@ -1,3 +1,5 @@
+// app/lib/test-ai.ts
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function testAIConnection() {

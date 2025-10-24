@@ -1,10 +1,13 @@
 'use client';
-
+import { LoadingSkeleton } from './LoadingSkeleton';
+import { CodeBlock } from './CodeBlock';
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import { BUG_FORMATTER_PROMPT } from '@/app/lib/prompts';
 import { BUG_FORMATTER_EXAMPLE } from '@/app/lib/examples';
 
@@ -14,6 +17,8 @@ export function BugFormatterTab() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(false);
+  const [showExamples, setShowExamples] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const handleGenerate = async () => {
     if (!messyInput.trim()) {
@@ -29,7 +34,6 @@ export function BugFormatterTab() {
       setCooldown(true);
       setFormattedReport('');
 
-      // Call the API route
       const apiResponse = await fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -48,8 +52,10 @@ export function BugFormatterTab() {
 
       const data = await apiResponse.json();
       setFormattedReport(data.response);
+      toast.success('Bug report formatted successfully!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
+      toast.error('Failed to format bug report');
     } finally {
       setIsLoading(false);
       setTimeout(() => setCooldown(false), 3000);
@@ -58,13 +64,19 @@ export function BugFormatterTab() {
 
   const handleTryExample = () => {
     setMessyInput(BUG_FORMATTER_EXAMPLE);
+    setShowExamples(false);
+    toast.info('Example loaded');
   };
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(formattedReport);
+      setCopied(true);
+      toast.success('Copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+      toast.error('Failed to copy');
     }
   };
 
@@ -79,19 +91,46 @@ export function BugFormatterTab() {
           </p>
         </div>
 
+        {/* Collapsible Examples Section */}
+        <div className="border rounded-lg">
+          <button
+            onClick={() => setShowExamples(!showExamples)}
+            className="w-full flex items-center justify-between p-4 hover:bg-accent/50 transition-colors rounded-lg"
+            type="button"
+          >
+            <span className="text-sm font-medium">
+              {showExamples ? 'Hide' : 'Show'} Example Feedback
+            </span>
+            {showExamples ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+
+          {showExamples && (
+            <div className="p-4 border-t bg-muted/30">
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Click to load a sample messy feedback:
+                </p>
+                <Button
+                  onClick={handleTryExample}
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  type="button"
+                >
+                  Load Example Feedback
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Input Section */}
         <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <label className="text-sm font-medium">Messy Feedback</label>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleTryExample}
-              type="button"
-            >
-              Try Example
-            </Button>
-          </div>
+          <label className="text-sm font-medium">Messy Feedback</label>
           <Textarea
             value={messyInput}
             onChange={(e) => setMessyInput(e.target.value)}
@@ -116,8 +155,18 @@ export function BugFormatterTab() {
           </Alert>
         )}
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Formatting Bug Report...</label>
+            <div className="bg-muted p-4 rounded-lg">
+              <LoadingSkeleton />
+            </div>
+          </div>
+        )}
+
         {/* Output Section */}
-        {formattedReport && (
+        {!isLoading && formattedReport && (
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label className="text-sm font-medium">Formatted Bug Report</label>
@@ -127,12 +176,23 @@ export function BugFormatterTab() {
                 onClick={handleCopy}
                 type="button"
               >
-                Copy as Markdown
+                {copied ? (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy as Markdown
+                  </>
+                )}
               </Button>
             </div>
-            <div className="prose prose-sm max-w-none bg-muted p-4 rounded-lg overflow-x-auto">
-              <pre className="whitespace-pre-wrap">{formattedReport}</pre>
-            </div>
+            <CodeBlock
+              code={formattedReport}
+              language="markdown"
+            />
           </div>
         )}
       </div>

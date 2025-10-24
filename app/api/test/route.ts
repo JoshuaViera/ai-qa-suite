@@ -1,3 +1,5 @@
+// app/api/test/route.ts
+
 import { NextResponse } from 'next/server';
 import { testAIConnection } from '@/app/lib/test-ai';
 

@@ -1,3 +1,5 @@
+// app/components/Header.tsx
+
 export function Header() {
   return (
     <header className="border-b">

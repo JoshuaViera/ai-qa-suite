@@ -1,3 +1,5 @@
+// app/page.tsx
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TestGeneratorTab } from "./components/TestGeneratorTab";
 import { ErrorExplainerTab } from "./components/ErrorExplainerTab";

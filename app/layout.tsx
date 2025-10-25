@@ -4,6 +4,7 @@ import "./globals.css";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "./components/ThemeProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,14 +19,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          {children}
-        </main>
-        <Footer />
-        <Toaster />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <Header />
+          <main className="container mx-auto px-4 py-8">
+            {children}
+          </main>
+          <Footer />
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

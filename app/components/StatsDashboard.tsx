@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { getGenerationStats, Generation } from '@/lib/db/service';
+import { getGenerationStats } from '@/lib/db/service';
 import { 
   TrendingUp, 
   Zap, 
@@ -15,8 +15,10 @@ import {
   FileText,
   Clock,
   BarChart3,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Stats {
   total: number;
@@ -35,30 +37,57 @@ export function StatsDashboard() {
     avgGenerationTime: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadStats();
   }, []);
 
+  // Listen for stats update events
+  useEffect(() => {
+    const handleStatsUpdate = () => {
+      loadStats();
+    };
+
+    window.addEventListener('generation-created', handleStatsUpdate);
+    return () => window.removeEventListener('generation-created', handleStatsUpdate);
+  }, []);
+
   async function loadStats() {
     try {
+      setLoading(true);
       const data = await getGenerationStats();
       setStats(data);
     } catch (error) {
       console.error('Failed to load stats:', error);
+      toast.error('Failed to load statistics');
     } finally {
       setLoading(false);
     }
   }
 
+  async function handleRefresh() {
+    try {
+      setRefreshing(true);
+      const data = await getGenerationStats();
+      setStats(data);
+      toast.success('Statistics refreshed!');
+    } catch (error) {
+      console.error('Failed to refresh stats:', error);
+      toast.error('Failed to refresh statistics');
+    } finally {
+      setTimeout(() => setRefreshing(false), 500);
+    }
+  }
+
   // Calculate derived metrics
-  const timeSavedHours = Math.round((stats.total * 15) / 60 * 10) / 10; // Assume 15 min saved per generation
-  const linesGenerated = Math.round(stats.totalOutputLength / 80); // Rough estimate
+  const timeSavedHours = Math.round((stats.total * 15) / 60 * 10) / 10;
+  const linesGenerated = Math.round(stats.totalOutputLength / 80);
   const testsGenerated = stats.byType['test-generator'] || 0;
   const errorsFixed = stats.byType['error-explainer'] || 0;
   const bugsFormatted = stats.byType['bug-formatter'] || 0;
 
-  // Achievements/Badges
+  // Achievements
   const achievements = [
     { 
       name: 'First Steps', 
@@ -123,8 +152,18 @@ export function StatsDashboard() {
           <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-6">
             Start using the AI QA Suite to see your productivity stats and achievements!
           </p>
-          <Button onClick={loadStats} variant="outline" size="sm">
-            Refresh Stats
+          <Button onClick={handleRefresh} variant="outline" size="sm" disabled={refreshing}>
+            {refreshing ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Checking...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Check for Stats
+              </>
+            )}
           </Button>
         </div>
       </Card>
@@ -134,7 +173,7 @@ export function StatsDashboard() {
   return (
     <div className="space-y-6">
       {/* Hero Stats */}
-      <Card className="p-6 bg-gradient-to-br from-primary/10 via-primary/5 to-background">
+      <Card className="p-6 bg-linear-to-br from-primary/10 via-primary/5 to-background">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
@@ -324,9 +363,14 @@ export function StatsDashboard() {
 
       {/* Refresh Button */}
       <div className="flex justify-center">
-        <Button onClick={loadStats} variant="outline" size="sm">
-          <TrendingUp className="mr-2 h-4 w-4" />
-          Refresh Statistics
+        <Button 
+          onClick={handleRefresh} 
+          variant="outline" 
+          size="sm"
+          disabled={refreshing}
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh Statistics'}
         </Button>
       </div>
     </div>

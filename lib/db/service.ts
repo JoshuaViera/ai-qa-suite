@@ -126,3 +126,70 @@ export async function deleteGeneration(id: string) {
     throw error;
   }
 }
+// ... (all your existing functions)
+
+/**
+ * Delete all generations for current user
+ */
+export async function deleteAllGenerations(): Promise<void> {
+  const sessionId = getSessionId();
+  
+  const { error } = await supabase
+    .from('generations')
+    .delete()
+    .eq('session_id', sessionId);
+  
+  if (error) {
+    console.error('Error deleting all generations:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get statistics for current user
+ */
+export async function getGenerationStats(): Promise<{
+  total: number;
+  byType: Record<string, number>;
+  totalInputLength: number;
+  totalOutputLength: number;
+  avgGenerationTime: number;
+}> {
+  const sessionId = getSessionId();
+  
+  const { data, error } = await supabase
+    .from('generations')
+    .select('feature_type, input_length, output_length, generation_time_ms')
+    .eq('session_id', sessionId);
+  
+  if (error || !data) {
+    console.error('Error fetching stats:', error);
+    return {
+      total: 0,
+      byType: {},
+      totalInputLength: 0,
+      totalOutputLength: 0,
+      avgGenerationTime: 0,
+    };
+  }
+  
+  const byType: Record<string, number> = {};
+  let totalInputLength = 0;
+  let totalOutputLength = 0;
+  let totalTime = 0;
+  
+  data.forEach(gen => {
+    byType[gen.feature_type] = (byType[gen.feature_type] || 0) + 1;
+    totalInputLength += gen.input_length || 0;
+    totalOutputLength += gen.output_length || 0;
+    totalTime += gen.generation_time_ms || 0;
+  });
+  
+  return {
+    total: data.length,
+    byType,
+    totalInputLength,
+    totalOutputLength,
+    avgGenerationTime: data.length > 0 ? totalTime / data.length : 0,
+  };
+}

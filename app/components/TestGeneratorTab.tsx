@@ -20,6 +20,7 @@ import { CodeBlock } from './CodeBlock';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { usePreferences } from '@/hooks/usePreferences';
 import { saveGeneration } from '@/lib/db/service';
+import { notifyGenerationCreated } from '@/lib/events';
 
 export function TestGeneratorTab() {
   const [mode, setMode] = useState<TestingMode>('frontend');
@@ -36,7 +37,6 @@ export function TestGeneratorTab() {
 
   const { preferences, updatePreferences } = usePreferences();
 
-  // Load preferences when available
   useEffect(() => {
     if (preferences && !isLoading) {
       setTestFramework(preferences.default_test_framework as TestFramework);
@@ -103,9 +103,11 @@ export function TestGeneratorTab() {
           output_length: data.response.length,
           generation_time_ms: endTime - startTime,
         });
+        
+        // Trigger live update
+        notifyGenerationCreated();
       } catch (dbError) {
         console.error('Failed to save to database:', dbError);
-        // Don't throw - generation was successful even if DB save failed
       }
 
       toast.success('Tests generated successfully!');
@@ -155,7 +157,6 @@ export function TestGeneratorTab() {
       setComponentFramework('react');
     }
 
-    // Save preference
     updatePreferences({ default_testing_mode: newMode });
   };
 
@@ -173,7 +174,6 @@ export function TestGeneratorTab() {
     setBackendLanguage(value);
     updatePreferences({ default_backend_language: value });
 
-    // Auto-set appropriate test framework
     if (value === 'python') setTestFramework('pytest');
     else if (value === 'node') setTestFramework('jest');
     else if (value === 'go') setTestFramework('go-testing');
@@ -185,7 +185,6 @@ export function TestGeneratorTab() {
   return (
     <Card className="p-6">
       <div className="space-y-6">
-        {/* Header */}
         <div>
           <h2 className="text-xl font-semibold mb-2">Test Generator</h2>
           <p className="text-sm text-muted-foreground">
@@ -193,7 +192,6 @@ export function TestGeneratorTab() {
           </p>
         </div>
 
-        {/* Mode Selection */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Testing Mode</label>
           <Select value={mode} onValueChange={(value) => handleModeChange(value as TestingMode)}>
@@ -207,7 +205,6 @@ export function TestGeneratorTab() {
           </Select>
         </div>
 
-        {/* Framework Selection */}
         {mode === 'frontend' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -270,7 +267,6 @@ export function TestGeneratorTab() {
           </div>
         )}
 
-        {/* Collapsible Examples Section */}
         <div className="border rounded-lg">
           <button
             onClick={() => setShowExamples(!showExamples)}
@@ -310,7 +306,6 @@ export function TestGeneratorTab() {
           )}
         </div>
 
-        {/* Input Section */}
         <div className="space-y-2">
           <label className="text-sm font-medium">
             {mode === 'frontend' ? 'Your Component Code' : 'Your Backend Code'}
@@ -327,7 +322,6 @@ export function TestGeneratorTab() {
           />
         </div>
 
-        {/* Generate Button */}
         <Button
           onClick={handleGenerate}
           disabled={isLoading || cooldown}
@@ -336,14 +330,12 @@ export function TestGeneratorTab() {
           {isLoading ? 'Generating...' : cooldown ? 'Please wait...' : 'Generate Tests'}
         </Button>
 
-        {/* Error Alert */}
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
-        {/* Loading State */}
         {isLoading && (
           <div className="space-y-2">
             <label className="text-sm font-medium">Generating Tests...</label>
@@ -353,7 +345,6 @@ export function TestGeneratorTab() {
           </div>
         )}
 
-        {/* Output Section */}
         {!isLoading && generatedTests && (
           <div className="space-y-2">
             <div className="flex justify-between items-center">

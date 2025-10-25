@@ -1,6 +1,5 @@
 'use client';
-import { LoadingSkeleton } from './LoadingSkeleton';
-import { CodeBlock } from './CodeBlock';
+
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +9,9 @@ import { ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { ERROR_EXPLAINER_PROMPT } from '@/app/lib/prompts';
 import { ERROR_EXPLAINER_EXAMPLE } from '@/app/lib/examples';
+import { CodeBlock } from './CodeBlock';
+import { LoadingSkeleton } from './LoadingSkeleton';
+import { saveGeneration } from '@/lib/db/service';
 
 export function ErrorExplainerTab() {
   const [brokenCode, setBrokenCode] = useState('');
@@ -28,6 +30,8 @@ export function ErrorExplainerTab() {
     }
 
     if (cooldown) return;
+
+    const startTime = Date.now();
 
     try {
       setIsLoading(true);
@@ -54,7 +58,23 @@ export function ErrorExplainerTab() {
       }
 
       const data = await apiResponse.json();
+      const endTime = Date.now();
       setExplanation(data.response);
+
+      // Save to database
+      try {
+        await saveGeneration({
+          feature_type: 'error-explainer',
+          input_code: combinedInput,
+          output_result: data.response,
+          input_length: combinedInput.length,
+          output_length: data.response.length,
+          generation_time_ms: endTime - startTime,
+        });
+      } catch (dbError) {
+        console.error('Failed to save to database:', dbError);
+      }
+
       toast.success('Error explained successfully!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -169,6 +189,7 @@ export function ErrorExplainerTab() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+
         {/* Loading State */}
         {isLoading && (
           <div className="space-y-2">
@@ -203,7 +224,7 @@ export function ErrorExplainerTab() {
                 )}
               </Button>
             </div>
-            <CodeBlock
+            <CodeBlock 
               code={explanation}
               language="typescript"
             />

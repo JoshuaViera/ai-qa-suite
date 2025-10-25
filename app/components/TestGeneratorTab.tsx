@@ -1,7 +1,6 @@
 'use client';
-import { LoadingSkeleton } from './LoadingSkeleton';
-import { CodeBlock } from './CodeBlock';
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,6 +16,10 @@ import {
 } from '@/components/ui/select';
 import { buildTestGeneratorPrompt, TestFramework, ComponentFramework, BackendLanguage, TestingMode } from '@/app/lib/promptBuilder';
 import { TEST_GENERATOR_EXAMPLES, BACKEND_TEST_EXAMPLES } from '@/app/lib/examples';
+import { CodeBlock } from './CodeBlock';
+import { LoadingSkeleton } from './LoadingSkeleton';
+import { usePreferences } from '@/hooks/usePreferences';
+import { saveGeneration } from '@/lib/db/service';
 
 export function TestGeneratorTab() {
   const [mode, setMode] = useState<TestingMode>('frontend');
@@ -31,6 +34,18 @@ export function TestGeneratorTab() {
   const [showExamples, setShowExamples] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const { preferences, updatePreferences } = usePreferences();
+
+  // Load preferences when available
+  useEffect(() => {
+    if (preferences && !isLoading) {
+      setTestFramework(preferences.default_test_framework as TestFramework);
+      setComponentFramework(preferences.default_component_framework as ComponentFramework);
+      setBackendLanguage(preferences.default_backend_language as BackendLanguage);
+      setMode(preferences.default_testing_mode as TestingMode);
+    }
+  }, [preferences]);
+
   const handleGenerate = async () => {
     if (!inputCode.trim()) {
       setError('Please enter some code to generate tests for');
@@ -38,6 +53,8 @@ export function TestGeneratorTab() {
     }
 
     if (cooldown) return;
+
+    const startTime = Date.now();
 
     try {
       setIsLoading(true);
@@ -69,7 +86,28 @@ export function TestGeneratorTab() {
       }
 
       const data = await apiResponse.json();
+      const endTime = Date.now();
       setGeneratedTests(data.response);
+
+      // Save to database
+      try {
+        await saveGeneration({
+          feature_type: 'test-generator',
+          input_code: inputCode,
+          output_result: data.response,
+          testing_mode: mode,
+          test_framework: testFramework,
+          component_framework: mode === 'frontend' ? componentFramework : undefined,
+          backend_language: mode === 'backend' ? backendLanguage : undefined,
+          input_length: inputCode.length,
+          output_length: data.response.length,
+          generation_time_ms: endTime - startTime,
+        });
+      } catch (dbError) {
+        console.error('Failed to save to database:', dbError);
+        // Don't throw - generation was successful even if DB save failed
+      }
+
       toast.success('Tests generated successfully!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -116,6 +154,32 @@ export function TestGeneratorTab() {
       setTestFramework('jest');
       setComponentFramework('react');
     }
+
+    // Save preference
+    updatePreferences({ default_testing_mode: newMode });
+  };
+
+  const handleTestFrameworkChange = (value: TestFramework) => {
+    setTestFramework(value);
+    updatePreferences({ default_test_framework: value });
+  };
+
+  const handleComponentFrameworkChange = (value: ComponentFramework) => {
+    setComponentFramework(value);
+    updatePreferences({ default_component_framework: value });
+  };
+
+  const handleBackendLanguageChange = (value: BackendLanguage) => {
+    setBackendLanguage(value);
+    updatePreferences({ default_backend_language: value });
+
+    // Auto-set appropriate test framework
+    if (value === 'python') setTestFramework('pytest');
+    else if (value === 'node') setTestFramework('jest');
+    else if (value === 'go') setTestFramework('go-testing');
+    else if (value === 'java') setTestFramework('junit');
+    else if (value === 'ruby') setTestFramework('rspec');
+    else if (value === 'php') setTestFramework('phpunit');
   };
 
   return (
@@ -148,10 +212,7 @@ export function TestGeneratorTab() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Test Framework</label>
-              <Select
-                value={testFramework}
-                onValueChange={(value) => setTestFramework(value as TestFramework)}
-              >
+              <Select value={testFramework} onValueChange={handleTestFrameworkChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -164,10 +225,7 @@ export function TestGeneratorTab() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Component Framework</label>
-              <Select
-                value={componentFramework}
-                onValueChange={(value) => setComponentFramework(value as ComponentFramework)}
-              >
+              <Select value={componentFramework} onValueChange={handleComponentFrameworkChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -183,19 +241,7 @@ export function TestGeneratorTab() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Programming Language</label>
-              <Select
-                value={backendLanguage}
-                onValueChange={(value) => {
-                  const lang = value as BackendLanguage;
-                  setBackendLanguage(lang);
-                  if (lang === 'python') setTestFramework('pytest');
-                  else if (lang === 'node') setTestFramework('jest');
-                  else if (lang === 'go') setTestFramework('go-testing');
-                  else if (lang === 'java') setTestFramework('junit');
-                  else if (lang === 'ruby') setTestFramework('rspec');
-                  else if (lang === 'php') setTestFramework('phpunit');
-                }}
-              >
+              <Select value={backendLanguage} onValueChange={handleBackendLanguageChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -254,7 +300,7 @@ export function TestGeneratorTab() {
                   className="w-full"
                   type="button"
                 >
-                  Load {mode === 'frontend'
+                  Load {mode === 'frontend' 
                     ? `${componentFramework.charAt(0).toUpperCase() + componentFramework.slice(1)} Example`
                     : `${backendLanguage.charAt(0).toUpperCase() + backendLanguage.slice(1)} Example`
                   }
@@ -296,6 +342,7 @@ export function TestGeneratorTab() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+
         {/* Loading State */}
         {isLoading && (
           <div className="space-y-2">
@@ -330,16 +377,16 @@ export function TestGeneratorTab() {
                 )}
               </Button>
             </div>
-            <CodeBlock
+            <CodeBlock 
               code={generatedTests}
               language={
                 mode === 'frontend'
                   ? (componentFramework === 'react' ? 'typescript' : 'javascript')
-                  : (backendLanguage === 'python' ? 'python' :
-                    backendLanguage === 'go' ? 'go' :
-                      backendLanguage === 'java' ? 'java' :
-                        backendLanguage === 'ruby' ? 'ruby' :
-                          backendLanguage === 'php' ? 'php' : 'javascript')
+                  : (backendLanguage === 'python' ? 'python' : 
+                     backendLanguage === 'go' ? 'go' :
+                     backendLanguage === 'java' ? 'java' :
+                     backendLanguage === 'ruby' ? 'ruby' :
+                     backendLanguage === 'php' ? 'php' : 'javascript')
               }
             />
           </div>

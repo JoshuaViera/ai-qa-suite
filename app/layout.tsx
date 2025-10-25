@@ -5,6 +5,7 @@ import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { SessionInitializer } from "./components/SessionInitializer";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -27,6 +28,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <SessionInitializer />
           <Header />
           <main className="container mx-auto px-4 py-8">
             {children}

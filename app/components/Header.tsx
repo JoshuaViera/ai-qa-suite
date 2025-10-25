@@ -1,4 +1,7 @@
+'use client';
+
 import { ThemeToggle } from './ThemeToggle';
+import { HistorySidebar } from './HistorySidebar';
 
 export function Header() {
   return (
@@ -11,7 +14,12 @@ export function Header() {
               Your intelligent partner for quality assurance
             </p>
           </div>
-          <ThemeToggle />
+          <div className="flex gap-2">
+            <HistorySidebar onSelectGeneration={function (generation: any): void {
+              throw new Error('Function not implemented.');
+            } } />
+            <ThemeToggle />
+          </div>
         </div>
       </div>
     </header>

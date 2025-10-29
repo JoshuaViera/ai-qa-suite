@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase/client';
 import { getSessionId } from '@/lib/session';
+import type { BugReport } from '../types/bug-reporter';
 
 // Types
 export interface Generation {
@@ -126,7 +127,6 @@ export async function deleteGeneration(id: string) {
     throw error;
   }
 }
-// ... (all your existing functions)
 
 /**
  * Delete all generations for current user
@@ -192,4 +192,35 @@ export async function getGenerationStats(): Promise<{
     totalOutputLength,
     avgGenerationTime: data.length > 0 ? totalTime / data.length : 0,
   };
+}
+
+// Bug Reporter Functions
+export async function saveBugReport(bugReport: Omit<BugReport, 'id' | 'created_at'>) {
+  const { data, error } = await supabase
+    .from('bug_reports')
+    .insert([bugReport])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error saving bug report:', error);
+    throw error;
+  }
+
+  return data as BugReport;
+}
+
+export async function getBugReportsBySession(sessionId: string) {
+  const { data, error } = await supabase
+    .from('bug_reports')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching bug reports:', error);
+    throw error;
+  }
+
+  return data as BugReport[];
 }

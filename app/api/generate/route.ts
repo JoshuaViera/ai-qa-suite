@@ -5,17 +5,24 @@ import { generateAIResponse } from '@/app/lib/ai';
 export async function POST(request: NextRequest) {
   try {
     const { prompt, input } = await request.json();
-
-    if (!prompt || !input) {
+    
+    if (!prompt) {
       return NextResponse.json(
-        { error: 'Prompt and input are required' },
+        { error: 'Prompt is required' },
         { status: 400 }
       );
     }
 
-    const response = await generateAIResponse(prompt, input);
-
-    return NextResponse.json({ response });
+    // Allow empty input for prompts that don't need it
+    const inputText = input || '';
+    
+    const response = await generateAIResponse(prompt, inputText);
+    
+    // Return both 'response' and 'result' for compatibility
+    return NextResponse.json({ 
+      response,
+      result: response 
+    });
   } catch (error) {
     console.error('API Error:', error);
     return NextResponse.json(
